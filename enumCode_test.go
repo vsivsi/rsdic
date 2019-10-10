@@ -2,13 +2,14 @@ package rsdic
 
 import (
 	. "github.com/smartystreets/goconvey/convey"
+	"math/bits"
 	"math/rand"
 	"testing"
 )
 
 func runTestenumCode(x uint64, t *testing.T) {
 	Convey("When encode value", t, func() {
-		rankSB := popCount(x)
+		rankSB := uint8(bits.OnesCount64(x))
 		code := enumEncode(x, rankSB)
 		Convey("The decode value should be equal to x", func() {
 			So(enumDecode(code, rankSB), ShouldEqual, x)
