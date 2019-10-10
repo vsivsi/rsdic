@@ -64,10 +64,3 @@ func printBit(x uint64) {
 	}
 	fmt.Printf("\n")
 }
-
-func popCount(x uint64) uint8 {
-	x = x - ((x & 0xAAAAAAAAAAAAAAAA) >> 1)
-	x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333)
-	x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0F
-	return uint8(x * 0x0101010101010101 >> 56)
-}
