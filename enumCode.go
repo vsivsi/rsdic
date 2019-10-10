@@ -1,6 +1,6 @@
 package rsdic
 
-import "math.bits"
+import "math/bits"
 
 func enumEncode(val uint64, rankSB uint8) uint64 {
 	if kEnumCodeLength[rankSB] == kSmallBlockSize {
