@@ -1,5 +1,7 @@
 package rsdic
 
+import "math.bits"
+
 func enumEncode(val uint64, rankSB uint8) uint64 {
 	if kEnumCodeLength[rankSB] == kSmallBlockSize {
 		return val
@@ -73,7 +75,7 @@ func enumRunZeros(code uint64, rankSB uint8, pos uint8) uint8 {
 
 func enumRank(code uint64, rankSB uint8, pos uint8) uint8 {
 	if kEnumCodeLength[rankSB] == kSmallBlockSize {
-		return popCount(code & ((1 << pos) - 1))
+		return uint8(bits.OnesCount64(code & ((1 << pos) - 1)))
 	}
 	curRank := rankSB
 	for i := uint8(0); i < pos; i++ {
