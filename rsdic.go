@@ -23,6 +23,8 @@ package rsdic
 // [1] "Fast, Small, Simple Rank/Select on Bitmaps", Gonzalo Navarro and Eliana Providel, SEA 2012
 
 import (
+	"math/bits"
+	
 	"github.com/ugorji/go/codec"
 )
 
@@ -134,7 +136,7 @@ func (rs RSDic) Rank(pos uint64, bit bool) uint64 {
 		return bitNum(rs.oneNum, rs.num, bit)
 	}
 	if rs.isLastBlock(pos) {
-		afterRank := popCount(rs.lastBlock >> (pos % kSmallBlockSize))
+		afterRank := bits.OnesCount64(rs.lastBlock >> (pos % kSmallBlockSize))
 		return bitNum(rs.oneNum-uint64(afterRank), pos, bit)
 	}
 	lblock := pos / kLargeBlockSize
@@ -236,7 +238,7 @@ func (rs RSDic) BitAndRank(pos uint64) (bool, uint64) {
 	if rs.isLastBlock(pos) {
 		offset := uint8(pos % kSmallBlockSize)
 		bit := getBit(rs.lastBlock, offset)
-		afterRank := uint64(popCount(rs.lastBlock >> offset))
+		afterRank := uint64(bits.OnesCount64(rs.lastBlock >> offset))
 		return bit, bitNum(rs.oneNum-afterRank, pos, bit)
 	}
 	lblock := pos / kLargeBlockSize
