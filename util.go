@@ -16,10 +16,10 @@ func setSlice(bits []uint64, pos uint64, codeLen uint8, val uint64) {
 	if codeLen == 0 {
 		return
 	}
-	block, offset := decompose(pos, kSmallBlockSize)
+	block, offset := decompose(pos, smallBlockSize)
 	bits[block] |= val << offset
-	if offset+uint64(codeLen) > kSmallBlockSize {
-		bits[block+1] |= (val >> (kSmallBlockSize - offset))
+	if offset+uint64(codeLen) > smallBlockSize {
+		bits[block+1] |= (val >> (smallBlockSize - offset))
 	}
 }
 
@@ -31,10 +31,10 @@ func getSlice(bits []uint64, pos uint64, codeLen uint8) uint64 {
 	if codeLen == 0 {
 		return 0
 	}
-	block, offset := decompose(pos, kSmallBlockSize)
+	block, offset := decompose(pos, smallBlockSize)
 	ret := (bits[block] >> offset)
-	if offset+uint64(codeLen) > kSmallBlockSize {
-		ret |= (bits[block+1] << (kSmallBlockSize - offset))
+	if offset+uint64(codeLen) > smallBlockSize {
+		ret |= (bits[block+1] << (smallBlockSize - offset))
 	}
 	if codeLen == 64 {
 		return ret
@@ -45,9 +45,8 @@ func getSlice(bits []uint64, pos uint64, codeLen uint8) uint64 {
 func bitNum(x uint64, n uint64, b bool) uint64 {
 	if b {
 		return x
-	} else {
-		return n - x
 	}
+	return n - x
 }
 
 func printBit(x uint64) {

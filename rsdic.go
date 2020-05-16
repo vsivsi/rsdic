@@ -24,10 +24,11 @@ package rsdic
 
 import (
 	"math/bits"
-	
+
 	"github.com/ugorji/go/codec"
 )
 
+// RSDic is a Rank/Select struct
 type RSDic struct {
 	bits            []uint64
 	pointerBlocks   []uint64
@@ -61,19 +62,19 @@ func (rs RSDic) ZeroNum() uint64 {
 
 // PushBack appends the bit to the end of B
 func (rs *RSDic) PushBack(bit bool) {
-	if (rs.num % kSmallBlockSize) == 0 {
+	if (rs.num % smallBlockSize) == 0 {
 		rs.writeBlock()
 	}
 	if bit {
-		rs.lastBlock |= (1 << (rs.num % kSmallBlockSize))
-		if (rs.oneNum % kSelectBlockSize) == 0 {
-			rs.selectOneInds = append(rs.selectOneInds, rs.num/kLargeBlockSize)
+		rs.lastBlock |= (1 << (rs.num % smallBlockSize))
+		if (rs.oneNum % selectBlockSize) == 0 {
+			rs.selectOneInds = append(rs.selectOneInds, rs.num/largeBlockSize)
 		}
 		rs.oneNum++
 		rs.lastOneNum++
 	} else {
-		if (rs.zeroNum % kSelectBlockSize) == 0 {
-			rs.selectZeroInds = append(rs.selectZeroInds, rs.num/kLargeBlockSize)
+		if (rs.zeroNum % selectBlockSize) == 0 {
+			rs.selectZeroInds = append(rs.selectZeroInds, rs.num/largeBlockSize)
 		}
 		rs.zeroNum++
 		rs.lastZeroNum++
@@ -85,9 +86,9 @@ func (rs *RSDic) writeBlock() {
 	if rs.num > 0 {
 		rankSB := uint8(rs.lastOneNum)
 		rs.rankSmallBlocks = append(rs.rankSmallBlocks, rankSB)
-		codeLen := kEnumCodeLength[rankSB]
+		codeLen := enumCodeLength[rankSB]
 		code := enumEncode(rs.lastBlock, rankSB)
-		newSize := floor(rs.codeLen+uint64(codeLen), kSmallBlockSize)
+		newSize := floor(rs.codeLen+uint64(codeLen), smallBlockSize)
 		if newSize > uint64(len(rs.bits)) {
 			rs.bits = append(rs.bits, 0)
 		}
@@ -97,7 +98,7 @@ func (rs *RSDic) writeBlock() {
 		rs.lastOneNum = 0
 		rs.codeLen += uint64(codeLen)
 	}
-	if (rs.num % kLargeBlockSize) == 0 {
+	if (rs.num % largeBlockSize) == 0 {
 		rs.rankBlocks = append(rs.rankBlocks, rs.oneNum)
 		rs.pointerBlocks = append(rs.pointerBlocks, rs.codeLen)
 	}
@@ -107,7 +108,7 @@ func (rs RSDic) lastBlockInd() uint64 {
 	if rs.num == 0 {
 		return 0
 	}
-	return ((rs.num - 1) / kSmallBlockSize) * kSmallBlockSize
+	return ((rs.num - 1) / smallBlockSize) * smallBlockSize
 }
 
 func (rs RSDic) isLastBlock(pos uint64) bool {
@@ -117,17 +118,17 @@ func (rs RSDic) isLastBlock(pos uint64) bool {
 // Bit returns the (pos+1)-th bit in bits, i.e. bits[pos]
 func (rs RSDic) Bit(pos uint64) bool {
 	if rs.isLastBlock(pos) {
-		return getBit(rs.lastBlock, uint8(pos%kSmallBlockSize))
+		return getBit(rs.lastBlock, uint8(pos%smallBlockSize))
 	}
-	lblock := pos / kLargeBlockSize
+	lblock := pos / largeBlockSize
 	pointer := rs.pointerBlocks[lblock]
-	sblock := pos / kSmallBlockSize
-	for i := lblock * kSmallBlockPerLargeBlock; i < sblock; i++ {
-		pointer += uint64(kEnumCodeLength[rs.rankSmallBlocks[i]])
+	sblock := pos / smallBlockSize
+	for i := lblock * smallBlockPerLargeBlock; i < sblock; i++ {
+		pointer += uint64(enumCodeLength[rs.rankSmallBlocks[i]])
 	}
 	rankSB := rs.rankSmallBlocks[sblock]
-	code := getSlice(rs.bits, pointer, kEnumCodeLength[rankSB])
-	return enumBit(code, rankSB, uint8(pos%kSmallBlockSize))
+	code := getSlice(rs.bits, pointer, enumCodeLength[rankSB])
+	return enumBit(code, rankSB, uint8(pos%smallBlockSize))
 }
 
 // Rank returns the number of bit's in B[0...pos)
@@ -136,24 +137,24 @@ func (rs RSDic) Rank(pos uint64, bit bool) uint64 {
 		return bitNum(rs.oneNum, rs.num, bit)
 	}
 	if rs.isLastBlock(pos) {
-		afterRank := bits.OnesCount64(rs.lastBlock >> (pos % kSmallBlockSize))
+		afterRank := bits.OnesCount64(rs.lastBlock >> (pos % smallBlockSize))
 		return bitNum(rs.oneNum-uint64(afterRank), pos, bit)
 	}
-	lblock := pos / kLargeBlockSize
+	lblock := pos / largeBlockSize
 	pointer := rs.pointerBlocks[lblock]
-	sblock := pos / kSmallBlockSize
+	sblock := pos / smallBlockSize
 	rank := rs.rankBlocks[lblock]
-	for i := lblock * kSmallBlockPerLargeBlock; i < sblock; i++ {
+	for i := lblock * smallBlockPerLargeBlock; i < sblock; i++ {
 		rankSB := rs.rankSmallBlocks[i]
-		pointer += uint64(kEnumCodeLength[rankSB])
+		pointer += uint64(enumCodeLength[rankSB])
 		rank += uint64(rankSB)
 	}
-	if pos%kSmallBlockSize == 0 {
+	if pos%smallBlockSize == 0 {
 		return bitNum(rank, pos, bit)
 	}
 	rankSB := rs.rankSmallBlocks[sblock]
-	code := getSlice(rs.bits, pointer, kEnumCodeLength[rankSB])
-	rank += uint64(enumRank(code, rankSB, uint8(pos%kSmallBlockSize)))
+	code := getSlice(rs.bits, pointer, enumCodeLength[rankSB])
+	rank += uint64(enumRank(code, rankSB, uint8(pos%smallBlockSize)))
 	return bitNum(rank, pos, bit)
 }
 
@@ -163,11 +164,11 @@ func (rs RSDic) Rank(pos uint64, bit bool) uint64 {
 func (rs RSDic) Select(rank uint64, bit bool) uint64 {
 	if bit {
 		return rs.Select1(rank)
-	} else {
-		return rs.Select0(rank)
 	}
+	return rs.Select0(rank)
 }
 
+// Select1 is
 func (rs RSDic) Select1(rank uint64) uint64 {
 	if rank >= rs.oneNum {
 		return rs.num
@@ -175,7 +176,7 @@ func (rs RSDic) Select1(rank uint64) uint64 {
 		lastBlockRank := uint8(rank - (rs.oneNum - rs.lastOneNum))
 		return rs.lastBlockInd() + uint64(selectRaw(rs.lastBlock, lastBlockRank+1))
 	}
-	selectInd := rank / kSelectBlockSize
+	selectInd := rank / selectBlockSize
 	lblock := rs.selectOneInds[selectInd]
 	for ; lblock < uint64(len(rs.rankBlocks)); lblock++ {
 		if rank < rs.rankBlocks[lblock] {
@@ -183,7 +184,7 @@ func (rs RSDic) Select1(rank uint64) uint64 {
 		}
 	}
 	lblock--
-	sblock := lblock * kSmallBlockPerLargeBlock
+	sblock := lblock * smallBlockPerLargeBlock
 	pointer := rs.pointerBlocks[lblock]
 	remain := rank - rs.rankBlocks[lblock] + 1
 	for ; sblock < uint64(len(rs.rankSmallBlocks)); sblock++ {
@@ -192,13 +193,14 @@ func (rs RSDic) Select1(rank uint64) uint64 {
 			break
 		}
 		remain -= uint64(rankSB)
-		pointer += uint64(kEnumCodeLength[rankSB])
+		pointer += uint64(enumCodeLength[rankSB])
 	}
 	rankSB := rs.rankSmallBlocks[sblock]
-	code := getSlice(rs.bits, pointer, kEnumCodeLength[rankSB])
-	return sblock*kSmallBlockSize + uint64(enumSelect1(code, rankSB, uint8(remain)))
+	code := getSlice(rs.bits, pointer, enumCodeLength[rankSB])
+	return sblock*smallBlockSize + uint64(enumSelect1(code, rankSB, uint8(remain)))
 }
 
+// Select0 is
 func (rs RSDic) Select0(rank uint64) uint64 {
 	if rank >= rs.zeroNum {
 		return rs.num
@@ -207,28 +209,28 @@ func (rs RSDic) Select0(rank uint64) uint64 {
 		lastBlockRank := uint8(rank - (rs.zeroNum - rs.lastZeroNum))
 		return rs.lastBlockInd() + uint64(selectRaw(^rs.lastBlock, lastBlockRank+1))
 	}
-	selectInd := rank / kSelectBlockSize
+	selectInd := rank / selectBlockSize
 	lblock := rs.selectZeroInds[selectInd]
 	for ; lblock < uint64(len(rs.rankBlocks)); lblock++ {
-		if rank < lblock*kLargeBlockSize-rs.rankBlocks[lblock] {
+		if rank < lblock*largeBlockSize-rs.rankBlocks[lblock] {
 			break
 		}
 	}
 	lblock--
-	sblock := lblock * kSmallBlockPerLargeBlock
+	sblock := lblock * smallBlockPerLargeBlock
 	pointer := rs.pointerBlocks[lblock]
-	remain := rank - lblock*kLargeBlockSize + rs.rankBlocks[lblock] + 1
+	remain := rank - lblock*largeBlockSize + rs.rankBlocks[lblock] + 1
 	for ; sblock < uint64(len(rs.rankSmallBlocks)); sblock++ {
-		rankSB := kSmallBlockSize - rs.rankSmallBlocks[sblock]
+		rankSB := smallBlockSize - rs.rankSmallBlocks[sblock]
 		if remain <= uint64(rankSB) {
 			break
 		}
 		remain -= uint64(rankSB)
-		pointer += uint64(kEnumCodeLength[rankSB])
+		pointer += uint64(enumCodeLength[rankSB])
 	}
 	rankSB := rs.rankSmallBlocks[sblock]
-	code := getSlice(rs.bits, pointer, kEnumCodeLength[rankSB])
-	return sblock*kSmallBlockSize + uint64(enumSelect0(code, rankSB, uint8(remain)))
+	code := getSlice(rs.bits, pointer, enumCodeLength[rankSB])
+	return sblock*smallBlockSize + uint64(enumSelect0(code, rankSB, uint8(remain)))
 }
 
 // BitAndRank returns the (pos+1)-th bit (=b) and Rank(pos, b)
@@ -236,90 +238,90 @@ func (rs RSDic) Select0(rank uint64) uint64 {
 // BitAndRank is faster.
 func (rs RSDic) BitAndRank(pos uint64) (bool, uint64) {
 	if rs.isLastBlock(pos) {
-		offset := uint8(pos % kSmallBlockSize)
+		offset := uint8(pos % smallBlockSize)
 		bit := getBit(rs.lastBlock, offset)
 		afterRank := uint64(bits.OnesCount64(rs.lastBlock >> offset))
 		return bit, bitNum(rs.oneNum-afterRank, pos, bit)
 	}
-	lblock := pos / kLargeBlockSize
+	lblock := pos / largeBlockSize
 	pointer := rs.pointerBlocks[lblock]
-	sblock := pos / kSmallBlockSize
+	sblock := pos / smallBlockSize
 	rank := rs.rankBlocks[lblock]
-	for i := lblock * kSmallBlockPerLargeBlock; i < sblock; i++ {
+	for i := lblock * smallBlockPerLargeBlock; i < sblock; i++ {
 		rankSB := rs.rankSmallBlocks[i]
-		pointer += uint64(kEnumCodeLength[rankSB])
+		pointer += uint64(enumCodeLength[rankSB])
 		rank += uint64(rankSB)
 	}
 	rankSB := rs.rankSmallBlocks[sblock]
-	code := getSlice(rs.bits, pointer, kEnumCodeLength[rankSB])
-	rank += uint64(enumRank(code, rankSB, uint8(pos%kSmallBlockSize)))
-	bit := enumBit(code, rankSB, uint8(pos%kSmallBlockSize))
+	code := getSlice(rs.bits, pointer, enumCodeLength[rankSB])
+	rank += uint64(enumRank(code, rankSB, uint8(pos%smallBlockSize)))
+	bit := enumBit(code, rankSB, uint8(pos%smallBlockSize))
 	return bit, bitNum(rank, pos, bit)
 }
 
 // AllocSize returns the allocated size in bytes.
-func (rsd RSDic) AllocSize() int {
-	return len(rsd.bits)*8 +
-		len(rsd.pointerBlocks)*8 +
-		len(rsd.rankBlocks)*8 +
-		len(rsd.selectOneInds)*8 +
-		len(rsd.selectZeroInds)*8 +
-		len(rsd.rankSmallBlocks)*1
+func (rs RSDic) AllocSize() int {
+	return len(rs.bits)*8 +
+		len(rs.pointerBlocks)*8 +
+		len(rs.rankBlocks)*8 +
+		len(rs.selectOneInds)*8 +
+		len(rs.selectZeroInds)*8 +
+		len(rs.rankSmallBlocks)*1
 }
 
 // MarshalBinary encodes the RSDic into a binary form and returns the result.
-func (rsd RSDic) MarshalBinary() (out []byte, err error) {
+func (rs RSDic) MarshalBinary() (out []byte, err error) {
 	var bh codec.MsgpackHandle
 	enc := codec.NewEncoderBytes(&out, &bh)
-	err = enc.Encode(rsd.bits)
+	err = enc.Encode(rs.bits)
 	if err != nil {
 		return
 	}
-	err = enc.Encode(rsd.pointerBlocks)
+	err = enc.Encode(rs.pointerBlocks)
 	if err != nil {
 		return
 	}
-	err = enc.Encode(rsd.rankBlocks)
+	err = enc.Encode(rs.rankBlocks)
 	if err != nil {
 		return
 	}
-	err = enc.Encode(rsd.selectOneInds)
+	err = enc.Encode(rs.selectOneInds)
 	if err != nil {
 		return
 	}
-	err = enc.Encode(rsd.selectZeroInds)
+	err = enc.Encode(rs.selectZeroInds)
 	if err != nil {
 		return
 	}
-	err = enc.Encode(rsd.rankSmallBlocks)
+	err = enc.Encode(rs.rankSmallBlocks)
 	if err != nil {
 		return
 	}
-	err = enc.Encode(rsd.num)
+	err = enc.Encode(rs.num)
 	if err != nil {
 		return
 	}
-	err = enc.Encode(rsd.oneNum)
+	err = enc.Encode(rs.oneNum)
 	if err != nil {
 		return
 	}
-	err = enc.Encode(rsd.zeroNum)
+	err = enc.Encode(rs.zeroNum)
 	if err != nil {
 		return
 	}
-	err = enc.Encode(rsd.lastBlock)
+	err = enc.Encode(rs.lastBlock)
 	if err != nil {
 		return
 	}
-	err = enc.Encode(rsd.lastOneNum)
+	err = enc.Encode(rs.lastOneNum)
 	if err != nil {
 		return
 	}
-	err = enc.Encode(rsd.lastZeroNum)
+	err = enc.Encode(rs.lastZeroNum)
 	if err != nil {
 		return
 	}
-	err = enc.Encode(rsd.codeLen)
+	err = enc.Encode(rs.codeLen)
 	if err != nil {
 		return
 	}
@@ -327,58 +329,58 @@ func (rsd RSDic) MarshalBinary() (out []byte, err error) {
 }
 
 // UnmarshalBinary decodes the RSDic from a binary from generated MarshalBinary
-func (rsd *RSDic) UnmarshalBinary(in []byte) (err error) {
+func (rs *RSDic) UnmarshalBinary(in []byte) (err error) {
 	var bh codec.MsgpackHandle
 	dec := codec.NewDecoderBytes(in, &bh)
-	err = dec.Decode(&rsd.bits)
+	err = dec.Decode(&rs.bits)
 	if err != nil {
 		return
 	}
-	err = dec.Decode(&rsd.pointerBlocks)
+	err = dec.Decode(&rs.pointerBlocks)
 	if err != nil {
 		return
 	}
-	err = dec.Decode(&rsd.rankBlocks)
+	err = dec.Decode(&rs.rankBlocks)
 	if err != nil {
 		return
 	}
-	err = dec.Decode(&rsd.selectOneInds)
+	err = dec.Decode(&rs.selectOneInds)
 	if err != nil {
 		return
 	}
-	err = dec.Decode(&rsd.selectZeroInds)
+	err = dec.Decode(&rs.selectZeroInds)
 	if err != nil {
 		return
 	}
-	err = dec.Decode(&rsd.rankSmallBlocks)
+	err = dec.Decode(&rs.rankSmallBlocks)
 	if err != nil {
 		return
 	}
-	err = dec.Decode(&rsd.num)
+	err = dec.Decode(&rs.num)
 	if err != nil {
 		return
 	}
-	err = dec.Decode(&rsd.oneNum)
+	err = dec.Decode(&rs.oneNum)
 	if err != nil {
 		return
 	}
-	err = dec.Decode(&rsd.zeroNum)
+	err = dec.Decode(&rs.zeroNum)
 	if err != nil {
 		return
 	}
-	err = dec.Decode(&rsd.lastBlock)
+	err = dec.Decode(&rs.lastBlock)
 	if err != nil {
 		return
 	}
-	err = dec.Decode(&rsd.lastOneNum)
+	err = dec.Decode(&rs.lastOneNum)
 	if err != nil {
 		return
 	}
-	err = dec.Decode(&rsd.lastZeroNum)
+	err = dec.Decode(&rs.lastZeroNum)
 	if err != nil {
 		return
 	}
-	err = dec.Decode(&rsd.codeLen)
+	err = dec.Decode(&rs.codeLen)
 	if err != nil {
 		return
 	}

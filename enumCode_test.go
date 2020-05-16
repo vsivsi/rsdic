@@ -1,10 +1,11 @@
 package rsdic
 
 import (
-	. "github.com/smartystreets/goconvey/convey"
 	"math/bits"
 	"math/rand"
 	"testing"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 func runTestenumCode(x uint64, t *testing.T) {
@@ -56,7 +57,7 @@ func runTestenumCode(x uint64, t *testing.T) {
 	})
 }
 
-func TestenumCode(t *testing.T) {
+func TestEnumCode(t *testing.T) {
 	runTestenumCode(uint64(0), t)
 	testN := 2
 	for pc := 0; pc < 64; pc++ {

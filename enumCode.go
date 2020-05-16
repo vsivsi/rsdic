@@ -3,13 +3,13 @@ package rsdic
 import "math/bits"
 
 func enumEncode(val uint64, rankSB uint8) uint64 {
-	if kEnumCodeLength[rankSB] == kSmallBlockSize {
+	if enumCodeLength[rankSB] == smallBlockSize {
 		return val
 	}
 	code := uint64(0)
-	for i := uint8(0); i < kSmallBlockSize; i++ {
+	for i := uint8(0); i < smallBlockSize; i++ {
 		if getBit(val, i) {
-			code += kCombinationTable64[kSmallBlockSize-i-1][rankSB]
+			code += combinationTable64[smallBlockSize-i-1][rankSB]
 			rankSB--
 		}
 	}
@@ -17,12 +17,12 @@ func enumEncode(val uint64, rankSB uint8) uint64 {
 }
 
 func enumDecode(code uint64, rankSB uint8) uint64 {
-	if kEnumCodeLength[rankSB] == kSmallBlockSize {
+	if enumCodeLength[rankSB] == smallBlockSize {
 		return code
 	}
 	val := uint64(0)
-	for i := uint8(0); i < kSmallBlockSize; i++ {
-		zeroCaseNum := kCombinationTable64[kSmallBlockSize-i-1][rankSB]
+	for i := uint8(0); i < smallBlockSize; i++ {
+		zeroCaseNum := combinationTable64[smallBlockSize-i-1][rankSB]
 		if code >= zeroCaseNum {
 			val |= (1 << i)
 			code -= zeroCaseNum
@@ -33,53 +33,53 @@ func enumDecode(code uint64, rankSB uint8) uint64 {
 }
 
 func enumBit(code uint64, rankSB uint8, pos uint8) bool {
-	if kEnumCodeLength[rankSB] == kSmallBlockSize {
+	if enumCodeLength[rankSB] == smallBlockSize {
 		return getBit(code, pos)
 	}
 	for i := uint8(0); i < pos; i++ {
-		zeroCaseNum := kCombinationTable64[kSmallBlockSize-i-1][rankSB]
+		zeroCaseNum := combinationTable64[smallBlockSize-i-1][rankSB]
 		if code >= zeroCaseNum {
 			code -= zeroCaseNum
 			rankSB--
 		}
 	}
-	return code >= kCombinationTable64[kSmallBlockSize-pos-1][rankSB]
+	return code >= combinationTable64[smallBlockSize-pos-1][rankSB]
 }
 
 func runZerosRaw(code uint64, pos uint8) uint8 {
 	i := uint8(pos)
-	for ; i < kSmallBlockSize && !getBit(code, i); i++ {
+	for ; i < smallBlockSize && !getBit(code, i); i++ {
 	}
 	return i - pos
 }
 
 func enumRunZeros(code uint64, rankSB uint8, pos uint8) uint8 {
-	if kEnumCodeLength[rankSB] == kSmallBlockSize {
+	if enumCodeLength[rankSB] == smallBlockSize {
 		return runZerosRaw(code, pos)
 	}
 	for i := uint8(0); i < pos; i++ {
-		zeroCaseNum := kCombinationTable64[kSmallBlockSize-i-1][rankSB]
+		zeroCaseNum := combinationTable64[smallBlockSize-i-1][rankSB]
 		if code >= zeroCaseNum {
 			code -= zeroCaseNum
 			rankSB--
 		}
 	}
-	for i := pos; i < kSmallBlockSize; i++ {
-		zeroCaseNum := kCombinationTable64[kSmallBlockSize-i-1][rankSB]
+	for i := pos; i < smallBlockSize; i++ {
+		zeroCaseNum := combinationTable64[smallBlockSize-i-1][rankSB]
 		if code >= zeroCaseNum {
 			return i - pos
 		}
 	}
-	return kSmallBlockSize - pos
+	return smallBlockSize - pos
 }
 
 func enumRank(code uint64, rankSB uint8, pos uint8) uint8 {
-	if kEnumCodeLength[rankSB] == kSmallBlockSize {
+	if enumCodeLength[rankSB] == smallBlockSize {
 		return uint8(bits.OnesCount64(code & ((1 << pos) - 1)))
 	}
 	curRank := rankSB
 	for i := uint8(0); i < pos; i++ {
-		zeroCaseNum := kCombinationTable64[kSmallBlockSize-i-1][curRank]
+		zeroCaseNum := combinationTable64[smallBlockSize-i-1][curRank]
 		if code >= zeroCaseNum {
 			code -= zeroCaseNum
 			curRank--
@@ -92,17 +92,16 @@ func enumSelect(code uint64, rankSB uint8, rank uint8, bit bool) uint8 {
 	// rank should be larger than 0, not called by rsdic
 	if bit {
 		return enumSelect1(code, rankSB, rank)
-	} else {
-		return enumSelect0(code, rankSB, rank)
 	}
+	return enumSelect0(code, rankSB, rank)
 }
 
 func enumSelect1(code uint64, rankSB uint8, rank uint8) uint8 {
-	if kEnumCodeLength[rankSB] == kSmallBlockSize {
+	if enumCodeLength[rankSB] == smallBlockSize {
 		return selectRaw(code, rank)
 	}
-	for i := uint8(0); i < kSmallBlockSize; i++ {
-		zeroCaseNum := kCombinationTable64[kSmallBlockSize-i-1][rankSB]
+	for i := uint8(0); i < smallBlockSize; i++ {
+		zeroCaseNum := combinationTable64[smallBlockSize-i-1][rankSB]
 		if code >= zeroCaseNum {
 			rank--
 			if rank == 0 {
@@ -116,11 +115,11 @@ func enumSelect1(code uint64, rankSB uint8, rank uint8) uint8 {
 }
 
 func enumSelect0(code uint64, rankSB uint8, rank uint8) uint8 {
-	if kEnumCodeLength[rankSB] == kSmallBlockSize {
+	if enumCodeLength[rankSB] == smallBlockSize {
 		return selectRaw(^code, rank)
 	}
-	for i := uint8(0); i < kSmallBlockSize; i++ {
-		zeroCaseNum := kCombinationTable64[kSmallBlockSize-i-1][rankSB]
+	for i := uint8(0); i < smallBlockSize; i++ {
+		zeroCaseNum := combinationTable64[smallBlockSize-i-1][rankSB]
 		if code >= zeroCaseNum {
 			code -= zeroCaseNum
 			rankSB--
@@ -135,7 +134,7 @@ func enumSelect0(code uint64, rankSB uint8, rank uint8) uint8 {
 }
 
 func selectRaw(code uint64, rank uint8) uint8 {
-	for i := uint8(0); i < kSmallBlockSize; i++ {
+	for i := uint8(0); i < smallBlockSize; i++ {
 		if getBit(code, i) {
 			rank--
 			if rank == 0 {
@@ -146,11 +145,11 @@ func selectRaw(code uint64, rank uint8) uint8 {
 	return 0 // should not come
 }
 
-var kCombinationTable64 [][]uint64
-var kEnumCodeLength []uint8
+var combinationTable64 [][]uint64
+var enumCodeLength []uint8
 
 func init() {
-	kCombinationTable64 = [][]uint64{
+	combinationTable64 = [][]uint64{
 		{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		{1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		{1, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -216,7 +215,7 @@ func init() {
 		{1, 62, 1891, 37820, 557845, 6471002, 61474519, 491796152, 3381098545, 20286591270, 107518933731, 508271323092, 2160153123141, 8308281242850, 29078984349975, 93052749919920, 273342452889765, 739632519584070, 1849081298960175, 4282083008118300, 9206478467454345, 18412956934908690, 34315056105966195, 59678358445158600, 96977332473382725, 147405545359541742, 209769429934732479, 279692573246309972, 349615716557887465, 409894288378212890, 450883717216034179, 465428353255261088, 450883717216034179, 409894288378212890, 349615716557887465, 279692573246309972, 209769429934732479, 147405545359541742, 96977332473382725, 59678358445158600, 34315056105966195, 18412956934908690, 9206478467454345, 4282083008118300, 1849081298960175, 739632519584070, 273342452889765, 93052749919920, 29078984349975, 8308281242850, 2160153123141, 508271323092, 107518933731, 20286591270, 3381098545, 491796152, 61474519, 6471002, 557845, 37820, 1891, 62, 1, 0, 0},
 		{1, 63, 1953, 39711, 595665, 7028847, 67945521, 553270671, 3872894697, 23667689815, 127805525001, 615790256823, 2668424446233, 10468434365991, 37387265592825, 122131734269895, 366395202809685, 1012974972473835, 2588713818544245, 6131164307078475, 13488561475572645, 27619435402363035, 52728013040874885, 93993414551124795, 156655690918541325, 244382877832924467, 357174975294274221, 489462003181042451, 629308289804197437, 759510004936100355, 860778005594247069, 916312070471295267, 916312070471295267, 860778005594247069, 759510004936100355, 629308289804197437, 489462003181042451, 357174975294274221, 244382877832924467, 156655690918541325, 93993414551124795, 52728013040874885, 27619435402363035, 13488561475572645, 6131164307078475, 2588713818544245, 1012974972473835, 366395202809685, 122131734269895, 37387265592825, 10468434365991, 2668424446233, 615790256823, 127805525001, 23667689815, 3872894697, 553270671, 67945521, 7028847, 595665, 39711, 1953, 63, 1, 0},
 		{1, 64, 2016, 41664, 635376, 7624512, 74974368, 621216192, 4426165368, 27540584512, 151473214816, 743595781824, 3284214703056, 13136858812224, 47855699958816, 159518999862720, 488526937079580, 1379370175283520, 3601688791018080, 8719878125622720, 19619725782651120, 41107996877935680, 80347448443237920, 146721427591999680, 250649105469666120, 401038568751465792, 601557853127198688, 846636978475316672, 1118770292985239888, 1388818294740297792, 1620288010530347424, 1777090076065542336, 1832624140942590534, 1777090076065542336, 1620288010530347424, 1388818294740297792, 1118770292985239888, 846636978475316672, 601557853127198688, 401038568751465792, 250649105469666120, 146721427591999680, 80347448443237920, 41107996877935680, 19619725782651120, 8719878125622720, 3601688791018080, 1379370175283520, 488526937079580, 159518999862720, 47855699958816, 13136858812224, 3284214703056, 743595781824, 151473214816, 27540584512, 4426165368, 621216192, 74974368, 7624512, 635376, 41664, 2016, 64, 1}}
-	kEnumCodeLength = []uint8{
+	enumCodeLength = []uint8{
 		0, 6, 11, 16, 20, 23, 27, 30, 33, 35, 38, 40, 42, 44, 46, 64,
 		64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
 		64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
